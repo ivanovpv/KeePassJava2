@@ -1,7 +1,16 @@
-# KeePassJava2
+# KeePassAndroid2
 
-A Java 7 API for databases compatible with the renowned [KeePass](http://keepass.info) password
-safe for Windows.
+Android compatible library for reading/writing databases compatible with the renowned [KeePass](http://keepass.info) password
+safe for Windows. 
+
+Forked from @jorabin's [KeePassJava2](https://github.com/jorabin/KeePassJava2) repo
+
+## changes to original KeePassJava2
+- BouncyCastle -> SpongyCastle
+- XML's `javax.xml.bind.DatatypeConverter` references to `utils/DatatypeConverter.java`
+- Sample app which parses database
+- Android instrumentation unit test
+- Utilities to check database integrity and/or password correctness
 
 Features to date:
 
@@ -25,30 +34,32 @@ It is licensed under the Apache 2 License and is currently usable.
 
  (see [license](#license))
 
-## Maven Coordinates
-_not yet_
-## Status
-Alpha. Somewhat tested but awaiting contributions ...
-## Java Version
-
-It is written for Java 1.7.
-
 ## Quick Start
 
 The class Javadoc on Interface classes Database, Group and Entry describe
 how to use the methods of those classes to create and modifty entries.
 
-### Load KDBX Database
-
+### Check database password and/or integrity
         // get an input stream
-        InputStream inputStream = getClass().getClassLoader().getResourceAsStream("test123.kdbx");
+        InputStream inputStream = new FileInputStream("test123.kdbx");
         // password credentials
         Credentials credentials = new KdbxCredentials.Password("123".getBytes());
         // open database
+        boolean isCorrect = DomDatabaseWrapper.checkCredentials(credentials, inputStream);
+        //in case of KDB database you should call
+        KdbDatabase.checkCredentials(credentials, inputStream);
+
+Before further usage `InputStream` need to be `reset()` or if stream doesn't support resetting
+it has to be opened again
+
+
+### Load 1KDBX Database
+
         Database database = DomDatabaseWrapper.load(credentials, inputStream);
 
-        // visit all groups and entries and list them to console
-        database.visit(new Database.PrintVisitor());
+### Load KDB Database
+
+        Database database = KdbDatabase.load(credentials, inputStream);
 
 ### Save KDBX Database
         // create an empty database
@@ -68,36 +79,21 @@ how to use the methods of those classes to create and modifty entries.
         database.save(new KdbxCredentials.Password("123".getBytes()), outputStream);
 
 
-### Load KDB Database
-
-        InputStream inputStream = getClass().getClassLoader().getResourceAsStream("test.kdb");
-        // password credentials
-        Credentials credentials = new KdbCredentials.Password("123".getBytes());
-        // load KdbDatabase
-        Database database = KdbDatabase.load(credentials, inputStream);
-
-        // visit all groups and entries and list them to console
-        database.visit(new Database.PrintVisitor());
-
+## To be done
+- reading and handling with binary data
 
 ## Dependencies
 
-Aside from the JRE the API depends on
-
-- Bouncy Castle [license](https://www.bouncycastle.org/licence.html)
-- Google Guava [license](https://github.com/google/guava/blob/master/COPYING).
-
-It also depends on SLF4J and Junit for tests.
+- Bouncy Castle's fork for Android [SpongyCastle](https://github.com/rtyley/spongycastle)
+- Google Guava [license](https://github.com/google/guava/blob/master/COPYING)
 
 ## Build
-
-Maven 3.
-
-
 
 ##  <a name="license">License</a>
 
 Copyright (c) 2015 Jo Rabin
+
+Changes copyright (c) 2016 Pavel Ivanov (ivanovpv@gmail.com)
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
