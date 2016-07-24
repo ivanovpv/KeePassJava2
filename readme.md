@@ -16,23 +16,9 @@ Features to date:
 
 - Read and write KeePass 2.x format
 - Keepass 2.x Password and Keyfile Credentials
-- Read KeePass 1.x format (Rijndael only)
+- Read KeePass 1.x format (Rijndael/AES only)
 - *No* requirement for JCE Policy Files
 - Interfaces for Database, Group and Entry allow compatible addition of other formats
-
-It is licensed under the Apache 2 License and is currently usable.
-
-    The work is provided on an "AS IS" BASIS, WITHOUT
-    WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-    implied, including, without limitation, any warranties
-    or conditions of TITLE, NON-INFRINGEMENT, MERCHANTABILITY,
-    or FITNESS FOR A PARTICULAR PURPOSE.
-
-    You are solely responsible for determining the appropriateness
-    of using or redistributing the Work and assume any risks
-    associated with Your exercise of permissions under this License.
-
- (see [license](#license))
 
 ## Quick Start
 
@@ -44,7 +30,7 @@ how to use the methods of those classes to create and modifty entries.
         InputStream inputStream = new FileInputStream("test123.kdbx");
         // password credentials
         Credentials credentials = new KdbxCredentials.Password("123".getBytes());
-        // open database
+        // check credentials for KDBX database
         boolean isCorrect = DomDatabaseWrapper.checkCredentials(credentials, inputStream);
         //in case of KDB database you should call
         KdbDatabase.checkCredentials(credentials, inputStream);
@@ -53,7 +39,7 @@ Before further usage `InputStream` need to be `reset()` or if stream doesn't sup
 it has to be opened again
 
 
-### Load 1KDBX Database
+### Load KDBX Database
 
         Database database = DomDatabaseWrapper.load(credentials, inputStream);
 
@@ -80,7 +66,7 @@ it has to be opened again
 
 
 ## To be done
-- reading and handling with binary data
+- reading and handling of binary data
 
 ## Dependencies
 
@@ -91,9 +77,7 @@ it has to be opened again
 
 ##  <a name="license">License</a>
 
-Copyright (c) 2015 Jo Rabin
-
-Changes copyright (c) 2016 Pavel Ivanov (ivanovpv@gmail.com)
+Copyright (c) 2015, 2016 Jo Rabin, Pavel Ivanov (ivanovpv@gmail.com)
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
