@@ -32,7 +32,8 @@ import java.io.InputStream;
 public class DomDatabaseWrapperTest extends BasicDatabaseChecks {
 
     public DomDatabaseWrapperTest() throws IOException {
-        super(new DomDatabaseWrapper());
+        super();
+        init(new DomDatabaseWrapper());
     }
 
     @Test

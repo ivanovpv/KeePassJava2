@@ -2,16 +2,14 @@ package ru.ivanovpv.android.keepassreader;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
-import android.content.Context;
 import android.content.DialogInterface;
-import android.content.res.AssetFileDescriptor;
 import android.os.AsyncTask;
-import android.provider.ContactsContract;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.TextView;
+
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
 
 import org.linguafranca.pwdb.Database;
 import org.linguafranca.pwdb.Entry;
@@ -65,7 +63,7 @@ public class MainActivity extends AppCompatActivity {
 
     private StringBuffer printDatabase(Database database) {
         StringBuffer sb=new StringBuffer();
-        sb.append("Database decription="+database.getDescription()).append("\n");
+        sb.append("Database description="+database.getDescription()).append("\n");
         Group group=database.getRootGroup();
         return printGroup(group, sb);
     }
@@ -99,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void logDatabase(Database database) {
-        Log.i(TAG, "Database decription="+database.getDescription());
+        Log.i(TAG, "Database description="+database.getDescription());
         Group group=database.getRootGroup();
         logGroup(group);
     }
@@ -218,7 +216,7 @@ public class MainActivity extends AppCompatActivity {
                     logDatabase(database);
                 }
                 else {
-                    Log.i(TAG, "Invalid password or database is corrput");
+                    Log.i(TAG, "Invalid password or database is corrupt");
                     return null;
                 }
             }

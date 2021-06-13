@@ -23,6 +23,7 @@ import org.linguafranca.pwdb.BasicDatabaseChecks;
  */
 public class KdbDatabaseTest  extends BasicDatabaseChecks {
     public KdbDatabaseTest() {
-        super(new KdbDatabase());
+        super();
+        init(new KdbDatabase());
     }
 }

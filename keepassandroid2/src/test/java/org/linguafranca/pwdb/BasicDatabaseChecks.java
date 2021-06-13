@@ -16,6 +16,7 @@
 
 package org.linguafranca.pwdb;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.linguafranca.pwdb.kdbx.dom.DomDatabaseWrapper;
 
@@ -35,9 +36,13 @@ public class BasicDatabaseChecks {
     public BasicDatabaseChecks() {
     }
 
-    public BasicDatabaseChecks(Database database) {
-        this.database = database;
+    public void init(Database database) {
+        this.database=database;
     }
+
+    /*public BasicDatabaseChecks(Database database) {
+        this.database = database;
+    }*/
 
     @Test
     public void testEmptyDatabase() {
