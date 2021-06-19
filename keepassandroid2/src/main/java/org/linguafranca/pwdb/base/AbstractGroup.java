@@ -16,8 +16,10 @@
 
 package org.linguafranca.pwdb.base;
 
+import org.linguafranca.pwdb.Database;
 import org.linguafranca.pwdb.Entry;
 import org.linguafranca.pwdb.Group;
+import org.linguafranca.pwdb.Icon;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,12 +30,12 @@ import java.util.Stack;
  *
  * @author Jo
  */
-public abstract class AbstractGroup implements Group {
+public abstract class AbstractGroup<D extends Database<D, G, E, I>, G extends org.linguafranca.pwdb.base.AbstractGroup<D, G, E, I>, E extends Entry<D, G, E, I>, I extends Icon> implements Group<D, G, E, I> {
 
     @Override
-    public List<Group> findGroups(String group1) {
-        ArrayList<Group> result = new ArrayList<>();
-        for (Group g: getGroups()) {
+    public List<? extends G> findGroups(String group1) {
+        ArrayList<G> result = new ArrayList<>();
+        for (G g: getGroups()) {
             if (g.getName().equals(group1)) {
                 result.add(g);
             }
@@ -42,15 +44,18 @@ public abstract class AbstractGroup implements Group {
     }
 
     @Override
-    public List<Entry> findEntries(String find, boolean recursive) {
-        List <Entry> result = new ArrayList<>(getEntries().size());
-        for (Entry entry: getEntries()){
+    public List<? extends E> findEntries(String find, boolean recursive) {
+        List <E> result = new ArrayList<>(getEntries().size());
+        if (isRecycleBin()) {
+            return result;
+        }
+        for (E entry: getEntries()){
             if (entry.match(find)){
                 result.add(entry);
             }
         }
         if (recursive) {
-            for (Group group : getGroups()) {
+            for (G group : getGroups()) {
                 result.addAll(group.findEntries(find, true));
             }
         }
@@ -58,19 +63,33 @@ public abstract class AbstractGroup implements Group {
     }
 
     @Override
-    public List<Entry> findEntries(Entry.Matcher matcher, boolean recursive) {
-        List <Entry> result = new ArrayList<>(getEntries().size());
-        for (Entry entry: getEntries()){
+    public List<? extends E> findEntries(Entry.Matcher matcher, boolean recursive) {
+        List <E> result = new ArrayList<>(getEntries().size());
+        if (isRecycleBin()) {
+            return result;
+        }
+        for (E entry: getEntries()){
             if (entry.match(matcher)){
                 result.add(entry);
             }
         }
         if (recursive) {
-            for (Group group : getGroups()) {
+            for (G group : getGroups()) {
                 result.addAll(group.findEntries(matcher, true));
             }
         }
         return result;
+    }
+
+    @Override
+    public void copy(Group<? extends Database, ? extends Group, ? extends Entry, ? extends Icon> parent) {
+        for (Group<?,?,?,?> child : parent.getGroups()) {
+            G addedGroup = addGroup(this.getDatabase().newGroup(child));
+            addedGroup.copy(child);
+        }
+        for (Entry entry : parent.getEntries()) {
+            addEntry(this.getDatabase().newEntry(entry));
+        }
     }
 
     @Override

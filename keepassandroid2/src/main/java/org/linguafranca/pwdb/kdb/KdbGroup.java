@@ -16,10 +16,11 @@
 
 package org.linguafranca.pwdb.kdb;
 
-import org.linguafranca.pwdb.Entry;
+import org.linguafranca.pwdb.Database;
 import org.linguafranca.pwdb.Group;
 import org.linguafranca.pwdb.Icon;
 import org.linguafranca.pwdb.base.AbstractGroup;
+import org.linguafranca.pwdb.Entry;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -30,14 +31,15 @@ import java.util.UUID;
  * The class holds a KDB Group
  * @author jo
  */
-public class KdbGroup extends AbstractGroup {
+public class KdbGroup extends AbstractGroup<KdbDatabase, KdbGroup, KdbEntry, KdbIcon> {
     private boolean root;
     private KdbGroup parent;
+    protected KdbDatabase database;
     private UUID uuid = UUID.randomUUID();
     private String name = "";
-    private Icon icon = new KdbIcon(0);
-    private List<Group> groups = new ArrayList<>();
-    private List<Entry> entries = new ArrayList<>();
+    private KdbIcon icon = new KdbIcon(0);
+    private List<KdbGroup> groups = new ArrayList<>();
+    private List<KdbEntry> entries = new ArrayList<>();
     private Date creationTime;
     private Date lastModificationTime;
     private Date lastAccessTime;
@@ -52,24 +54,24 @@ public class KdbGroup extends AbstractGroup {
     }
 
     @Override
-    public Group addGroup(Group group) {
+    public KdbGroup addGroup(KdbGroup group) {
         groups.add(group);
         if (group.getParent() != null) {
             group.getParent().removeGroup(group);
         }
-        ((KdbGroup) group).parent = this;
+        group.parent = this;
         return group;
     }
 
     @Override
-    public Group removeGroup(Group group) {
+    public KdbGroup removeGroup(KdbGroup group) {
         groups.remove(group);
-        ((KdbGroup) group).parent = null;
+        group.parent = null;
         return group;
     }
 
     @Override
-    public List<Entry> getEntries() {
+    public List<KdbEntry> getEntries() {
         return new ArrayList<>(entries);
     }
 
@@ -79,20 +81,20 @@ public class KdbGroup extends AbstractGroup {
     }
 
     @Override
-    public Entry addEntry(Entry entry) {
-        KdbGroup entryParent = (((KdbEntry) entry).parent);
+    public KdbEntry addEntry(KdbEntry entry) {
+        KdbGroup entryParent = entry.parent;
         if (entryParent != null) {
             entryParent.removeEntry(entry);
         }
         entries.add(entry);
-        ((KdbEntry) entry).parent = this;
+        entry.parent = this;
         return entry;
     }
 
     @Override
-    public Entry removeEntry(Entry entry) {
+    public KdbEntry removeEntry(KdbEntry entry) {
         entries.remove(entry);
-        ((KdbEntry) entry).parent = null;
+        entry.parent = null;
         return entry;
     }
 
@@ -136,12 +138,12 @@ public class KdbGroup extends AbstractGroup {
     }
 
     @Override
-    public Group getParent() {
+    public KdbGroup getParent() {
         return parent;
     }
 
     @Override
-    public void setParent(Group parent) {
+    public void setParent(KdbGroup parent) {
         parent.addGroup(this);
     }
 
@@ -155,17 +157,17 @@ public class KdbGroup extends AbstractGroup {
     }
 
     @Override
-    public Icon getIcon() {
+    public KdbIcon getIcon() {
         return icon;
     }
 
     @Override
-    public void setIcon(Icon icon) {
+    public void setIcon(KdbIcon icon) {
         this.icon = icon;
     }
 
     @Override
-    public List<Group> getGroups() {
+    public List<KdbGroup> getGroups() {
         return new ArrayList<>(groups);
     }
 
@@ -205,5 +207,14 @@ public class KdbGroup extends AbstractGroup {
     public String toString() {
         String time = KdbDatabase.isoDateFormat.format(creationTime);
         return getPath() + String.format(" (%s) %s [%d]", uuid.toString(), time, flags);
+    }
+
+    public KdbDatabase getDatabase() {
+        return database;
+    }
+
+    @Override
+    public boolean isRecycleBin() {
+        return false;
     }
 }

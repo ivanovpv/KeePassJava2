@@ -1,13 +1,23 @@
 package org.linguafranca.utils;
 
+import android.util.Log;
+
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.codec.binary.Hex;
+import org.linguafranca.pwdb.Credentials;
+import org.linguafranca.pwdb.kdb.KdbHeader;
+import org.linguafranca.pwdb.kdb.KdbSerializer;
+import org.linguafranca.pwdb.kdbx.stream_3_1.KdbxHeader;
+import org.linguafranca.pwdb.kdbx.stream_3_1.KdbxSerializer;
+import org.linguafranca.pwdb.kdbx.stream_3_1.KdbxStreamFormat;
+
+import java.io.InputStream;
 
 /**
  * Created by pivanov on 20.07.2016.
  */
 
-public class DatatypeConverter {
+public class DataUtils {
 
     public static byte[] parseHexBinary(String hexString) {
         if(hexString==null || hexString.trim().length()==0)
@@ -37,4 +47,27 @@ public class DatatypeConverter {
         char[] chars=Hex.encodeHex(buffer);
         return String.valueOf(chars);
     }
+
+    public static boolean checkCredentialsKdbx (Credentials credentials, InputStream encryptedInputStream) {
+        KdbxHeader kdbxHeader = new KdbxHeader();
+        try {
+            InputStream decryptedInputStream = KdbxSerializer.createUnencryptedInputStream(credentials,
+                    kdbxHeader, encryptedInputStream);
+            decryptedInputStream.close();
+        }
+        catch(Exception ex) {
+            return false;
+        }
+        return true;
+    }
+
+    public static boolean checkCredentialsKdb(Credentials credentials, InputStream inputStream) {
+        try {
+            KdbSerializer.createKdbDatabase(credentials, new KdbHeader(), inputStream);
+        } catch(Throwable th) {
+            return false;
+        }
+        return true;
+    }
+
 }

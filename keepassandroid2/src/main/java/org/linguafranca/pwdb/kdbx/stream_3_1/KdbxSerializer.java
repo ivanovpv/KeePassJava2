@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package org.linguafranca.pwdb.kdbx;
+package org.linguafranca.pwdb.kdbx.stream_3_1;
 
 import com.google.common.io.LittleEndianDataInputStream;
 import com.google.common.io.LittleEndianDataOutputStream;
-import org.linguafranca.hashedblock.HashedBlockInputStream;
-import org.linguafranca.hashedblock.HashedBlockOutputStream;
-import org.linguafranca.security.Credentials;
-import org.linguafranca.security.Encryption;
+import org.linguafranca.pwdb.hashedblock.HashedBlockInputStream;
+import org.linguafranca.pwdb.hashedblock.HashedBlockOutputStream;
+import org.linguafranca.pwdb.Credentials;
+import org.linguafranca.pwdb.security.Encryption;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -37,28 +37,35 @@ import java.util.zip.GZIPOutputStream;
  * <p/>
  * A KDBX file is little-endian and consists of the following:
  * <ol>
- *     <li>An unencrypted portion</li>
- * <ol>
- *     <li>8 bytes Magic number</li>
- *     <li>4 bytes version</li>
- *     <li>A header containing details of the encryption of the remainder of the file</li>
- *     <p>The header fields are encoded using a TLV style. The Type is an enumeratrion encoded in 1 byte.
- *     The length is encoded in 2 bytes and the value according to the length denoted. The sequence is
- *     terminated by a zero type with 0 length.</p>
+ *      <li>An unencrypted portion</li>
+ *      <ol>
+ *          <li>8 bytes Magic number</li>
+ *          <li>4 bytes version</li>
+ *          <li>A header containing details of the encryption of the remainder of the file</li>
+ *          <p>The header fields are encoded using a TLV style. The Type is an enumeration encoded in 1 byte.
+ *          The length is encoded in 2 bytes and the value according to the length denoted. The sequence is
+ *          terminated by a zero type with 0 length.</p>
+ *          <p>{@link KdbxHeader} details the fields of the header.</p>
+ *      </ol>
+ *      <li>An encrypted portion</li>
+ *      <ol>
+ *          <li>A sequence of bytes contained in the header. If they don't match, decryption has not worked.</li>
+ *          <li>A payload serialized in Hashed Block format, see e.g. {@link HashedBlockInputStream} for details of this.</li>
+ *          <li>The content of this payload may be GZIP compressed.</li>
+ *          <li>The content is now a character stream, which is expected to be
+ *          XML representing a KeePass Database. Assumed UTF-8 encoding.</li>
+ *      </ol>
  * </ol>
- *  <li>An encrypted portion</li>
- *  <ol>
- *      <li>A sequence of bytes contained in the header. If they don't match, decryption has not worked.</li>
- *      <li>A payload serialized in Hashed Block format.</li>
- *      <p>The content of this payload is expected to be a Keepass Database in XML format.</p>
- *  </ol>
- * </ol>
- * <p/>
- * The methods in this class provide support for serializing and deserializing plain text payload content
- * to and from the above format.
- * <p/>
+ * <p>The methods in this class provide support for serializing and deserializing plain text payload content
+ *      to and from the above encrypted format.
+ * <p>Various fields of the plain text XML (e.g. passwords) are additionally
+ *      and optionally encrypted using a second encryption. They
+ *      are stream encrypted, meaning they have to be decrypted in the
+ *      same order as they were encrypted, namely actual XML document order. Or at least that
+ *      is the way it seems. The methods of this class do not perform this aspect of encryption/decryption.
  * @author jo
  */
+@SuppressWarnings("WeakerAccess")
 public class KdbxSerializer {
 
     // make entirely static
@@ -70,7 +77,7 @@ public class KdbxSerializer {
      * @param kdbxHeader a header instance to be populated with values from the stream
      * @param inputStream a KDBX formatted input stream
      * @return an unencrypted input stream, to be read and closed by the caller
-     * @throws IOException
+     * @throws IOException on error
      */
     public static InputStream createUnencryptedInputStream(Credentials credentials, KdbxHeader kdbxHeader, InputStream inputStream) throws IOException {
 
@@ -94,7 +101,7 @@ public class KdbxSerializer {
      * @param kdbxHeader a KDBX header to control the formatting and encryption operation
      * @param outputStream output stream to contain the KDBX formatted output
      * @return an unencrypted output stream, to be written to, flushed and closed by the caller
-     * @throws IOException
+     * @throws IOException on error
      */
     public static OutputStream createEncryptedOutputStream(Credentials credentials, KdbxHeader kdbxHeader, OutputStream outputStream) throws IOException {
 
@@ -119,7 +126,7 @@ public class KdbxSerializer {
         byte [] startBytes = new byte[32];
         ledis.readFully(startBytes);
         if (!Arrays.equals(startBytes, kdbxHeader.getStreamStartBytes())) {
-            throw new IllegalStateException("Inconsistent stream bytes");
+            throw new IllegalStateException("Inconsistent stream start bytes. This usually means the credentials were wrong.");
         }
     }
 
@@ -152,7 +159,7 @@ public class KdbxSerializer {
      * kdbx file;
      * @param ledis an input stream
      * @return true if it looks like this is a kdbx file
-     * @throws IOException
+     * @throws IOException on error
      */
     private static boolean verifyMagicNumber(LittleEndianDataInputStream ledis) throws IOException {
         int sig1 = ledis.readInt();
@@ -164,7 +171,7 @@ public class KdbxSerializer {
      * Read 4 bytes and make sure they conform to expectations of file version
      * @param ledis an input stream
      * @return true if it looks like we understand this file version
-     * @throws IOException
+     * @throws IOException on error
      */
     private static boolean verifyFileVersion(LittleEndianDataInputStream ledis) throws IOException {
         return ((ledis.readInt() & FILE_VERSION_CRITICAL_MASK) <= (FILE_VERSION_32 & FILE_VERSION_CRITICAL_MASK));
@@ -175,7 +182,7 @@ public class KdbxSerializer {
      * @param kdbxHeader a header to be populated
      * @param inputStream an input stream
      * @return the populated KdbxHeader
-     * @throws IOException
+     * @throws IOException on error
      */
     public static KdbxHeader readKdbxHeader(KdbxHeader kdbxHeader, InputStream inputStream) throws IOException {
 
@@ -253,7 +260,7 @@ public class KdbxSerializer {
      * message digest of the written stream.
      * @param kdbxHeader the header to write and update
      * @param outputStream the output stream
-     * @throws IOException
+     * @throws IOException on error
      */
     public static void writeKdbxHeader(KdbxHeader kdbxHeader, OutputStream outputStream) throws IOException {
         MessageDigest messageDigest = Encryption.getMessageDigestInstance();

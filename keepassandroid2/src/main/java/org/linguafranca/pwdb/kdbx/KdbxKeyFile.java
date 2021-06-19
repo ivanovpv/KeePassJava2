@@ -16,7 +16,7 @@
 
 package org.linguafranca.pwdb.kdbx;
 
-import org.linguafranca.utils.DatatypeConverter;
+import org.apache.commons.codec.binary.Base64;
 import org.w3c.dom.Document;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -31,9 +31,10 @@ import java.io.InputStream;
  *
  * @author jo
  */
+@SuppressWarnings("WeakerAccess")
 public class KdbxKeyFile {
 
-    static XPath xpath = XPathFactory.newInstance().newXPath();
+    private static XPath xpath = XPathFactory.newInstance().newXPath();
 
     /**
      * Load a key from an InputStream with a KDBX XML key file.
@@ -52,6 +53,7 @@ public class KdbxKeyFile {
         } catch (Exception e) {
             return null;
         }
-        return DatatypeConverter.parseBase64Binary(base64);
+        // android compatibility
+        return Base64.decodeBase64(base64.getBytes());
     }
 }

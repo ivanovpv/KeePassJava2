@@ -16,15 +16,12 @@
 
 package org.linguafranca.pwdb.kdbx.dom;
 
-import android.util.Log;
-
-import org.linguafranca.security.Credentials;
-import org.linguafranca.pwdb.base.AbstractDatabase;
 import org.linguafranca.pwdb.Entry;
-import org.linguafranca.pwdb.Group;
-import org.linguafranca.pwdb.Icon;
+import org.linguafranca.pwdb.base.AbstractDatabase;
+import org.linguafranca.pwdb.kdbx.Helpers;
+import org.linguafranca.pwdb.kdbx.stream_3_1.KdbxStreamFormat;
 import org.linguafranca.pwdb.kdbx.StreamFormat;
-import org.linguafranca.pwdb.kdbx.KdbxStreamFormat;
+import org.linguafranca.pwdb.Credentials;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -33,20 +30,23 @@ import javax.xml.xpath.XPathExpressionException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.UUID;
 
+import static org.linguafranca.pwdb.kdbx.Helpers.base64FromUuid;
 import static org.linguafranca.pwdb.kdbx.dom.DomHelper.*;
+
 /**
  * The class wraps a {@link DomSerializableDatabase} as a {@link org.linguafranca.pwdb.Database}.
  *
  * @author jo
  */
-public class DomDatabaseWrapper extends AbstractDatabase {
+public class DomDatabaseWrapper extends AbstractDatabase<DomDatabaseWrapper, DomGroupWrapper, DomEntryWrapper, DomIconWrapper> {
 
-    Document document;
-    Element dbRootGroup;
+    private Document document;
+    private Element dbRootGroup;
     Element dbMeta;
 
-    DomSerializableDatabase domDatabase = DomSerializableDatabase.createEmptyDatabase();
+    private DomSerializableDatabase domDatabase = DomSerializableDatabase.createEmptyDatabase();
 
 
     public DomDatabaseWrapper () throws IOException {
@@ -62,18 +62,6 @@ public class DomDatabaseWrapper extends AbstractDatabase {
         return new DomDatabaseWrapper(new KdbxStreamFormat(), credentials, inputStream);
     }
 
-    public static boolean checkCredentials (Credentials credentials, InputStream inputStream) {
-        try {
-            KdbxStreamFormat kdbxStreamFormat=new KdbxStreamFormat();
-            return kdbxStreamFormat.checkCredentials(credentials, inputStream);
-        }
-        catch(Exception ex) {
-            Log.i("KDBX", "Error while checking credentials", ex);
-            return false;
-        }
-    }
-
-
     private void init() {
         document = domDatabase.getDoc();
         try {
@@ -84,6 +72,7 @@ public class DomDatabaseWrapper extends AbstractDatabase {
         }
     }
 
+    @Override
     public void save(Credentials credentials, OutputStream outputStream) throws IOException {
         new KdbxStreamFormat().save(domDatabase, credentials, outputStream);
         setDirty(false);
@@ -95,7 +84,7 @@ public class DomDatabaseWrapper extends AbstractDatabase {
     }
 
     public boolean shouldProtect(String name) {
-        Element protectionElement = getElement("MemoryProtection/Protect" + name, dbMeta, false);
+        Element protectionElement = DomHelper.getElement("MemoryProtection/Protect" + name, dbMeta, false);
         if (protectionElement == null) {
             return false;
         }
@@ -103,51 +92,91 @@ public class DomDatabaseWrapper extends AbstractDatabase {
     }
 
     @Override
-    public Group getRootGroup() {
+    public DomGroupWrapper getRootGroup() {
         return new DomGroupWrapper(dbRootGroup, this, false);
     }
 
     @Override
-    public Group newGroup() {
-        return new DomGroupWrapper(document.createElement(GROUP_ELEMENT_NAME), this, true);
+    public DomGroupWrapper newGroup() {
+        return new DomGroupWrapper(document.createElement(DomHelper.GROUP_ELEMENT_NAME), this, true);
     }
 
     @Override
-    public Entry newEntry() {
-        return new DomEntryWrapper(document.createElement(ENTRY_ELEMENT_NAME), this, true);
+    public DomEntryWrapper newEntry() {
+        return new DomEntryWrapper(document.createElement(DomHelper.ENTRY_ELEMENT_NAME), this, true);
     }
 
     @Override
-    public Icon newIcon() {
-        return new DomIconWrapper(document.createElement(ICON_ELEMENT_NAME));
+    public DomIconWrapper newIcon() {
+        return new DomIconWrapper(document.createElement(DomHelper.ICON_ELEMENT_NAME));
     }
 
     @Override
-    public Icon newIcon(Integer i) {
-        Icon icon =  newIcon();
+    public DomIconWrapper newIcon(Integer i) {
+        DomIconWrapper icon =  newIcon();
         icon.setIndex(i);
         return icon;
     }
 
+    @Override
+    public DomGroupWrapper getRecycleBin() {
+        String UUIDcontent = getElementContent(RECYCLE_BIN_UUID_ELEMENT_NAME, dbMeta);
+        if (UUIDcontent != null){
+            final UUID uuid = Helpers.uuidFromBase64(UUIDcontent);
+            if (uuid.getLeastSignificantBits() != 0 && uuid.getMostSignificantBits() != 0) {
+                for (DomGroupWrapper g: getRootGroup().getGroups()) {
+                    if (g.getUuid().equals(uuid)) {
+                        return g;
+                    }
+                }
+                // the recycle bin seems to have been lost, better create another one
+            }
+            // uuid was 0 i.e. there isn't one
+        }
+        // no recycle bin group set up
+        if (!isRecycleBinEnabled()) {
+            return null;
+        }
+
+        DomGroupWrapper g = newGroup();
+        g.setName("Recycle Bin");
+        getRootGroup().addGroup(g);
+        ensureElementContent(RECYCLE_BIN_UUID_ELEMENT_NAME, dbMeta, base64FromUuid(g.getUuid()));
+        touchElement(RECYCLE_BIN_CHANGED_ELEMENT_NAME, dbMeta);
+        return g;
+    }
+
+    @Override
+    public boolean isRecycleBinEnabled() {
+        return Boolean.valueOf(getElementContent(RECYCLE_BIN_ENABLED_ELEMENT_NAME, dbMeta));
+    }
+
+    @Override
+    public void enableRecycleBin(boolean enable) {
+        setElementContent(RECYCLE_BIN_ENABLED_ELEMENT_NAME, dbMeta, ((Boolean) enable).toString());
+    }
+
     public String getName() {
-        return getElementContent("DatabaseName", dbMeta);
+        return DomHelper.getElementContent("DatabaseName", dbMeta);
     }
 
     public void setName(String name) {
-        setElementContent("DatabaseName", dbMeta, name);
-        touchElement("DatabaseNameChanged", dbMeta);
+        DomHelper.setElementContent("DatabaseName", dbMeta, name);
+        DomHelper.touchElement("DatabaseNameChanged", dbMeta);
         setDirty(true);
     }
 
     @Override
     public String getDescription() {
-        return getElementContent("DatabaseDescription", dbMeta);
+        return DomHelper.getElementContent("DatabaseDescription", dbMeta);
     }
 
     @Override
     public void setDescription(String description) {
-        setElementContent("DatabaseDescription", dbMeta, description);
-        touchElement("DatabaseDescriptionChanged", dbMeta);
+        DomHelper.setElementContent("DatabaseDescription", dbMeta, description);
+        DomHelper.touchElement("DatabaseDescriptionChanged", dbMeta);
         setDirty(true);
     }
+
+
 }

@@ -16,7 +16,7 @@
 
 package org.linguafranca.pwdb.kdb;
 
-import org.linguafranca.security.Encryption;
+import org.linguafranca.pwdb.security.Encryption;
 
 import javax.crypto.Cipher;
 import java.io.IOException;
@@ -58,7 +58,7 @@ public class KdbHeader {
     public InputStream createDecryptedInputStream(byte[] key, InputStream inputStream) throws IOException {
         Cipher cipher;
         if ((flags & FLAG_RIJNDAEL) == 0) {
-            throw new IllegalStateException("Encryption algorithm is not supported");
+            throw new IllegalStateException("StreamEncryptor algorithm is not supported");
         }
 
         byte[] finalKeyDigest = Encryption.getFinalKeyDigest(key, masterSeed, transformSeed, transformRounds);

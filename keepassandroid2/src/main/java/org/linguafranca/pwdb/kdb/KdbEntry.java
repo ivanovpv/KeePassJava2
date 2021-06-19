@@ -17,7 +17,7 @@
 package org.linguafranca.pwdb.kdb;
 
 import org.linguafranca.pwdb.Entry;
-import org.linguafranca.pwdb.Group;
+
 import org.linguafranca.pwdb.Icon;
 import org.linguafranca.pwdb.base.AbstractEntry;
 
@@ -31,7 +31,7 @@ import java.util.UUID;
  *
  * @author jo
  */
-public class KdbEntry extends AbstractEntry {
+public class KdbEntry extends AbstractEntry<KdbDatabase, KdbGroup, KdbEntry, KdbIcon> {
     KdbGroup parent;
     private UUID uuid = UUID.randomUUID();
     private String title = "";
@@ -40,9 +40,10 @@ public class KdbEntry extends AbstractEntry {
     private KdbIcon icon = new KdbIcon(0);
     private String username = "";
     private String password = "";
-    private Date creationTime = new Date();
-    private Date lastModificationTime = new Date();
-    private Date lastAccessTime = new Date(Long.MIN_VALUE);
+    private Date creationTime = new Date((System.currentTimeMillis()/1000L)*1000L); // to the next lower second
+    private Date lastModificationTime = creationTime;
+    private Date lastAccessTime = creationTime;
+    private boolean expires = false;
     private Date expiryTime = new Date(Long.MAX_VALUE);
     private String binaryDescription = "";
     private byte[] binaryData = new byte[0];
@@ -72,12 +73,22 @@ public class KdbEntry extends AbstractEntry {
     }
 
     @Override
+    public boolean removeProperty(String name) throws UnsupportedOperationException {
+        throw new UnsupportedOperationException("Cannot remove non-standard properties in KDB format");
+    }
+
+    @Override
+    public boolean removeBinaryProperty(String name) throws UnsupportedOperationException {
+        throw new UnsupportedOperationException("Cannot remove binary properties in KDB format");
+    }
+
+    @Override
     public List<String> getPropertyNames() {
         return new ArrayList<>(Entry.STANDARD_PROPERTY_NAMES);
     }
 
     @Override
-    public Group getParent() {
+    public KdbGroup getParent() {
         return parent;
     }
 
@@ -141,13 +152,13 @@ public class KdbEntry extends AbstractEntry {
     }
 
     @Override
-    public Icon getIcon() {
+    public KdbIcon getIcon() {
         return icon;
     }
 
     @Override
-    public void setIcon(Icon icon) {
-        this.icon = (KdbIcon) icon;
+    public void setIcon(KdbIcon icon) {
+        this.icon = icon;
     }
     
     void setCreationTime(Date creationTime) {
@@ -174,7 +185,8 @@ public class KdbEntry extends AbstractEntry {
         return lastAccessTime;
     }
 
-    void setExpiryTime(Date expiryTime) {
+    public void setExpiryTime(Date expiryTime) {
+        if (expiryTime == null) throw new IllegalArgumentException("expiryTime may not be null");
         this.expiryTime = expiryTime;
     }
 
@@ -190,13 +202,11 @@ public class KdbEntry extends AbstractEntry {
         this.binaryDescription = binaryDescription;
     }
 
-    @Override
     public byte[] getBinaryData() {
         return binaryData;
     }
 
-    @Override
-    public void setBinaryData(byte[] binaryData) {
+    void setBinaryData(byte[] binaryData) {
         this.binaryData = binaryData;
     }
 
@@ -208,5 +218,35 @@ public class KdbEntry extends AbstractEntry {
     @Override
     public boolean match(String text) {
         return super.match(text) || this.getBinaryDescription().toLowerCase().contains(text.toLowerCase());
+    }
+
+    @Override
+    public byte[] getBinaryProperty(String name) {
+        return null; //doesn't support binary properties
+    }
+
+    @Override
+    public void setBinaryProperty(String name, byte[] value) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<String> getBinaryPropertyNames() {
+        return new ArrayList<String>(); //no binary properties at all
+    }
+
+    @Override
+    public void setExpires(boolean expires) {
+        this.expires = expires;
+    }
+
+    @Override
+    public boolean getExpires() {
+        return expires;
+    }
+
+    @Override
+    protected void touch() {
+        lastModificationTime = new Date();
     }
 }

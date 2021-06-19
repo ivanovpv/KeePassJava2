@@ -16,17 +16,19 @@
 
 package org.linguafranca.pwdb.kdbx.dom;
 
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.linguafranca.utils.DatatypeConverter;
+import org.linguafranca.pwdb.kdbx.Helpers;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
+
+//import javax.xml.bind.DatatypeConverter;
 
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
-import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -35,7 +37,7 @@ import java.util.*;
  *
  * @author jo
  */
-public class DomHelper {
+class DomHelper {
 
     static XPath xpath = XPathFactory.newInstance().newXPath();
 
@@ -61,7 +63,12 @@ public class DomHelper {
     static final String LOCATION_CHANGED = "Times/LocationChanged";
 
     static final String PROPERTY_ELEMENT_FORMAT = "String[Key/text()='%s']";
+    static final String BINARY_PROPERTY_ELEMENT_FORMAT = "Binary[Key/text()='%s']";
     static final String VALUE_ELEMENT_NAME = "Value";
+
+    static final String RECYCLE_BIN_UUID_ELEMENT_NAME = "RecycleBinUuid";
+    static final String RECYCLE_BIN_ENABLED_ELEMENT_NAME = "RecycleBinEnabled";
+    static final String RECYCLE_BIN_CHANGED_ELEMENT_NAME = "RecycleBinChanged";
 
     interface ValueCreator {
         String getValue();
@@ -100,7 +107,8 @@ public class DomHelper {
     }
 
 
-    @Nullable //@Contract("_,_,true -> !null")
+    @Nullable
+    @Contract("_,_,true -> !null")
     static  Element getElement(String elementPath, Element parentElement, boolean create) {
         try {
             Element result = (Element) xpath.evaluate(elementPath, parentElement, XPathConstants.NODE);
@@ -110,6 +118,16 @@ public class DomHelper {
             return result;
         } catch (XPathExpressionException e) {
             throw new IllegalStateException(e);
+        }
+    }
+
+    static boolean removeElement(String elementPath, Element parentElement) {
+        Element toRemove = getElement(elementPath, parentElement, false);
+        if (toRemove == null) {
+            return false;
+        } else {
+            toRemove.getParentNode().removeChild(toRemove);
+            return true;
         }
     }
 
@@ -135,6 +153,7 @@ public class DomHelper {
         }
     }
 
+    @Nullable
     static Element newElement(String elementName, Element parentElement) {
         Element newElement = parentElement.getOwnerDocument().createElement(elementName);
         parentElement.appendChild(newElement);
@@ -164,6 +183,49 @@ public class DomHelper {
         return result;
     }
 
+    @Nullable
+    static byte[] getBinaryElementContent(String elementPath, Element parentElement) {
+        Element result = getElement(elementPath, parentElement, false);
+        if (result == null) {
+            return null;
+        }
+        String id = result.getAttribute("Ref");
+        Element content = getElement("//Binaries/Binary[@ID=" + id + "]", parentElement.getOwnerDocument().getDocumentElement(),false);
+        if (content == null) {
+            throw new IllegalStateException("Could not find binary content with ID " + id);
+        }
+        return Helpers.decodeBase64Content(content.getTextContent().getBytes(), content.hasAttribute("Compressed"));
+    }
+
+    @NotNull
+    static Element setBinaryElementContent(String elementPath, Element parentElement, byte[] value) {
+        try {
+            String b64 = Helpers.encodeBase64Content(value, true);
+
+            //Find the highest numbered existing content
+            String max = xpath.evaluate("//Binaries/Binary/@ID[not(. < ../../Binary/@ID)][1]", parentElement.getOwnerDocument().getDocumentElement());
+            Integer newIndex = Integer.valueOf(max) + 1;
+
+            Element binaries = getElement("//Binaries", parentElement.getOwnerDocument().getDocumentElement(),false);
+            if (binaries == null) {
+                throw new IllegalStateException("Binaries not found");
+            }
+            Element binary = (Element) binaries.appendChild(binaries.getOwnerDocument().createElement("Binary"));
+            binary.setTextContent(b64);
+            binary.setAttribute("Compressed", "True");
+            binary.setAttribute("ID", newIndex.toString());
+
+            Element result = getElement(elementPath, parentElement, true);
+            result.setAttribute("Ref", newIndex.toString());
+
+
+            return result;
+
+        } catch (XPathExpressionException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     @NotNull
     static Element touchElement(String elementPath, Element parentElement) {
         return setElementContent(elementPath, parentElement, dateFormatter.format(new Date()));
@@ -186,33 +248,7 @@ public class DomHelper {
     }
 
     static String base64RandomUuid () {
-        return base64FromUuid(UUID.randomUUID());
+        return Helpers.base64FromUuid(UUID.randomUUID());
     }
 
-    static String base64FromUuid(UUID uuid) {
-        byte[] buffer = new byte[16];
-        ByteBuffer b = ByteBuffer.wrap(buffer);
-        b.putLong(uuid.getMostSignificantBits());
-        b.putLong(8, uuid.getLeastSignificantBits());
-        return DatatypeConverter.printBase64Binary(buffer);
-    }
-
-    static String hexStringFromUuid(UUID uuid) {
-        byte[] buffer = new byte[16];
-        ByteBuffer b = ByteBuffer.wrap(buffer);
-        b.putLong(uuid.getMostSignificantBits());
-        b.putLong(8, uuid.getLeastSignificantBits());
-        return DatatypeConverter.printHexBinary(buffer);
-    }
-
-    static String hexStringFromBase64(String base64) {
-        byte[] buffer = DatatypeConverter.parseBase64Binary(base64);
-        return DatatypeConverter.printHexBinary(buffer);
-    }
-
-    static UUID uuidFromBase64(String base64) {
-        byte[] buffer = DatatypeConverter.parseBase64Binary(base64);
-        ByteBuffer b = ByteBuffer.wrap(buffer);
-        return new UUID(b.getLong(), b.getLong(8));
-    }
 }

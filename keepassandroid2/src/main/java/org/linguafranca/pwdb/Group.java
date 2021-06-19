@@ -30,11 +30,16 @@ import java.util.UUID;
  *
  * @author Jo
  */
-public interface Group {
+public interface Group <D extends Database<D, G, E, I>, G extends Group<D, G, E, I>, E extends Entry<D,G,E,I>, I extends Icon> {
     /**
      * Returns true if this is the root group of a database
      */
     boolean isRootGroup();
+
+    /**
+     * Returns true if this is the recycle bin of a database
+     */
+    boolean isRecycleBin();
 
     /**
      * Returns the parent of this group, or null if either this
@@ -42,14 +47,15 @@ public interface Group {
      * a parent - e.g. if it is newly created or if it has
      * been removed from a previous parent.
       */
-    Group getParent();
+    G getParent();
 
     /**
-     * Set parent is equivalent to <code>parent.addGroup(this)</code>
+     * Add this group to a parent. The group must be of a type compatible with the database
+     * and if it already belongs to another group it is removed from that group.
      *
      * @param parent a prospective parent
      */
-    void setParent(Group parent);
+    void setParent(G parent);
 
     /**
      * Returns a list of groups that are the children of this group.
@@ -58,23 +64,26 @@ public interface Group {
      *
      * @return a modifiable list of groups
      */
-    List<Group> getGroups();
+    List<? extends G> getGroups();
 
     /**
      * Returns the number of groups that are direct children of this group
+     *
+     * <p>It's possible that returning a list as in {@link #getGroups()} may incur significantly
+     * more overhead so use this method if only the count is reuqired
      */
     int getGroupsCount();
 
     /**
-     * Remove the group from its current parent, if any and add it to this gorup.
+     * If the group belongs to this database then move it from its present parent, if any, to
+     * the group on which this method is called.
      *
      * <p>The root group cannot be added to another group.
      *
      * @param group the group to add
      * @return the group added
-     * @throws IllegalArgumentException if the group is not part of this database
      */
-    Group addGroup(Group group);
+    G addGroup(G group);
 
     /**
      * Returns a list of child Groups whose name exactly matches that supplied.
@@ -84,26 +93,32 @@ public interface Group {
      * @param groupName the name of the groups sought
      * @return a modifiable list
      */
-    List<Group> findGroups(String groupName);
+    List<? extends G> findGroups(String groupName);
 
     /**
      * Removes the group supplied from this group. The group removed
      * no longer has a parent and so in not part of the database any more unless
      * it is re-added to another group.
-     *
+     * <p>
+     * If the group is incompatible with the databse an exception is thrown.
+     * <p>
+     * If the group is not present no error is thrown.
      * @param group the group to remove
-     * @return the group removed
+     * @return the group passed for removal
      * @throws IllegalArgumentException if the group is not a child of this group
      */
-    Group removeGroup(Group group);
+    G removeGroup(G group);
 
     /**
      * Returns a modifiable by the caller list of entries contained in this group.
      */
-    List<Entry> getEntries();
+    List<? extends E> getEntries();
 
     /**
      * Returns the number of entries in this group
+     *
+     * <p>It's possible that returning a list as in {@link #getEntries()} may incur significantly
+     * more overhead so use this method if only the count is reuqired
      */
     int getEntriesCount();
 
@@ -118,7 +133,7 @@ public interface Group {
      * @return a modifiable-by-caller list
      * @see Entry#match(String)
      */
-    List<Entry> findEntries(String match, boolean recursive);
+    List<? extends E> findEntries(String match, boolean recursive);
 
     /**
      * Finds all entries in this group that match using the matcher supplied.
@@ -131,7 +146,7 @@ public interface Group {
      * @return a modifiable-by-caller list
      * @see Entry#match(String)
      */
-    List<Entry> findEntries(Entry.Matcher matcher, boolean recursive);
+    List<? extends E> findEntries(Entry.Matcher matcher, boolean recursive);
 
     /**
      * Adds an entry to this group removing it from another group
@@ -139,7 +154,7 @@ public interface Group {
      * @param entry the entry to add
      * @return the entry added
      */
-    Entry addEntry(Entry entry);
+    E addEntry(E entry);
 
     /**
      * Remove an entry from this group and hence from the database.
@@ -147,7 +162,13 @@ public interface Group {
      * @return the entry removed
      * @throws IllegalArgumentException if the Entry is not in the group
      */
-    Entry removeEntry(Entry entry);
+    E removeEntry(E entry);
+
+    /**
+     * Make a deep copy of the children a group in this group. Does not copy the parent group.
+     * @param parent the group to deep copy
+     */
+    void copy(Group<? extends Database, ? extends Group, ? extends Entry, ? extends Icon> parent);
 
     /**
      * Returns an XPath-like string of the names of Groups from the Root
@@ -163,5 +184,7 @@ public interface Group {
 
     Icon getIcon();
 
-    void setIcon(Icon icon);
+    void setIcon(I icon);
+
+    D getDatabase();
 }

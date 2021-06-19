@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-package org.linguafranca.hashedblock;
-
-
+package org.linguafranca.pwdb.hashedblock;
 
 import org.jetbrains.annotations.NotNull;
 

@@ -11,6 +11,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import org.linguafranca.pwdb.Credentials;
 import org.linguafranca.pwdb.Database;
 import org.linguafranca.pwdb.Entry;
 import org.linguafranca.pwdb.Group;
@@ -19,11 +20,11 @@ import org.linguafranca.pwdb.kdb.KdbCredentials;
 import org.linguafranca.pwdb.kdb.KdbDatabase;
 import org.linguafranca.pwdb.kdbx.KdbxCredentials;
 import org.linguafranca.pwdb.kdbx.dom.DomDatabaseWrapper;
-import org.linguafranca.security.Credentials;
-import org.linguafranca.utils.DatatypeConverter;
+import org.linguafranca.utils.DataUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -52,12 +53,12 @@ public class MainActivity extends AppCompatActivity {
 
     private boolean checkKDBXDatabase(InputStream is, byte[] passwordBytes) {
         Credentials credentials = new KdbxCredentials.Password(passwordBytes);
-        return DomDatabaseWrapper.checkCredentials(credentials, is);
+        return DataUtils.checkCredentialsKdbx(credentials, is);
     }
 
     private boolean checkKDBDatabase(InputStream is, byte[] passwordBytes) {
         Credentials credentials = new KdbCredentials.Password(passwordBytes);
-        return KdbDatabase.checkCredentials(credentials, is);
+        return DataUtils.checkCredentialsKdb(credentials, is);
     }
 
 
@@ -71,10 +72,12 @@ public class MainActivity extends AppCompatActivity {
     private StringBuffer printGroup(Group group, StringBuffer sb) {
         sb.append("=========GROUP============\n");
         sb.append("Group="+group.getName()).append("\n");
-        for(Entry entry:group.getEntries()) {
+        List<Entry> entries = group.getEntries();
+        for(Entry entry:entries) {
             printEntry(entry, sb);
         }
-        for(Group childGroup:group.getGroups()) {
+        List<Group> groups = group.getGroups();
+        for(Group childGroup:groups) {
             printGroup(childGroup, sb);
         }
         return sb;
@@ -83,13 +86,17 @@ public class MainActivity extends AppCompatActivity {
     private StringBuffer printEntry(Entry entry, StringBuffer sb) {
         sb.append("---------entry---------\n");
         sb.append("Entry uuid="+entry.getUuid()).append("\n");
-        for(String propName:entry.getPropertyNames()) {
+        List<String> properties = entry.getPropertyNames();
+        for(String propName:properties) {
             sb.append("Property name="+propName+", value="+entry.getProperty(propName)).append("\n");
+        }
+        List<String> binProps = entry.getBinaryPropertyNames();
+        for(String propName:binProps) {
+            String base64= DataUtils.printBase64Binary(entry.getBinaryProperty(propName));
+            Log.i(TAG, "Binary data="+base64);
         }
         Icon icon=entry.getIcon();
         sb.append("Icon index="+icon.getIndex()).append("\n");
-        String base64=DatatypeConverter.printBase64Binary(entry.getBinaryData());
-        sb.append("Binary data="+base64).append("\n");
         sb.append("Created="+entry.getCreationTime()).append("\n");
         sb.append("Modified="+entry.getLastModificationTime()).append("\n");
         sb.append("Accessed="+entry.getLastAccessTime()).append("\n");
@@ -105,10 +112,12 @@ public class MainActivity extends AppCompatActivity {
     private void logGroup(Group group) {
         Log.i(TAG, "=========GROUP============");
         Log.i(TAG, "Group="+group.getName());
-        for(Entry entry:group.getEntries()) {
+        List<Entry> entries = group.getEntries();
+        for(Entry entry:entries) {
             logEntry(entry);
         }
-        for(Group childGroup:group.getGroups()) {
+        List<Group> groups = group.getGroups();
+        for(Group childGroup:groups) {
             logGroup(childGroup);
         }
     }
@@ -116,13 +125,17 @@ public class MainActivity extends AppCompatActivity {
     private void logEntry(Entry entry) {
         Log.i(TAG, "---------entry---------\n");
         Log.i(TAG, "Entry uuid="+entry.getUuid());
-        for(String propName:entry.getPropertyNames()) {
+        List<String> properties = entry.getPropertyNames();
+        for(String propName:properties) {
             Log.i(TAG, "Property name="+propName+", value="+entry.getProperty(propName));
+        }
+        List<String> binProps = entry.getBinaryPropertyNames();
+        for(String propName:binProps) {
+            String base64= DataUtils.printBase64Binary(entry.getBinaryProperty(propName));
+            Log.i(TAG, "Binary data="+base64);
         }
         Icon icon=entry.getIcon();
         Log.i(TAG, "Icon index="+icon.getIndex());
-        String base64=DatatypeConverter.printBase64Binary(entry.getBinaryData());
-        Log.i(TAG, "Binary data="+base64);
         Log.i(TAG, "Created="+entry.getCreationTime());
         Log.i(TAG, "Modified="+entry.getLastModificationTime());
         Log.i(TAG, "Accessed="+entry.getLastAccessTime());

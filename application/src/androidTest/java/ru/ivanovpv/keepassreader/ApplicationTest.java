@@ -13,7 +13,7 @@ import org.linguafranca.pwdb.kdb.KdbDatabase;
 import org.linguafranca.pwdb.kdbx.KdbxCredentials;
 import org.linguafranca.pwdb.kdbx.dom.DomDatabaseWrapper;
 import org.linguafranca.security.Credentials;
-import org.linguafranca.utils.DatatypeConverter;
+import org.linguafranca.utils.DataUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -82,7 +82,7 @@ public class ApplicationTest extends ApplicationTestCase<Application> {
         }
         Icon icon=entry.getIcon();
         Log.i(TAG, "-->icon index="+icon.getIndex());
-        String base64= DatatypeConverter.printBase64Binary(entry.getBinaryData());
+        String base64= DataUtils.printBase64Binary(entry.getBinaryData());
         Log.i(TAG, "-->binary data="+base64);
         Log.i(TAG, "-->created="+entry.getCreationTime().toString());
         Log.i(TAG, "-->modified="+entry.getLastModificationTime().toString());

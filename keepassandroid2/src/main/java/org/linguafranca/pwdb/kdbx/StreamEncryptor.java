@@ -16,22 +16,34 @@
 
 package org.linguafranca.pwdb.kdbx;
 
-import org.junit.Test;
-
-import java.io.InputStream;
-
-import static org.junit.Assert.*;
-
 /**
+ * KDBX "protected" fields are stream encrypted. They must be decrypted in
+ * the same order as they were encrypted.
+ *
  * @author jo
  */
-public class KdbxKeyFileTest {
+public interface StreamEncryptor {
+    byte[] getKey();
 
-    @Test
-    public void testLoad() throws Exception {
-        InputStream inputStream = getClass().getClassLoader().getResourceAsStream("KeyFileDatabase.key");
-        byte[] key = KdbxKeyFile.load(inputStream);
-        assertNotNull(key);
-        assertEquals(32, key.length);
+    byte[] decrypt(byte[] encryptedText);
+
+    byte[] encrypt(byte[] decryptedText);
+
+    class None implements StreamEncryptor {
+
+        @Override
+        public byte[] getKey() {
+            return new byte[0];
+        }
+
+        @Override
+        public byte[] decrypt(byte[] encryptedText) {
+            return encryptedText;
+        }
+
+        @Override
+        public byte[] encrypt(byte[] decryptedText) {
+            return decryptedText;
+        }
     }
 }

@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-package org.linguafranca.security;
+package org.linguafranca.pwdb;
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 /**
  * Supports a contract that yields a key for decryption of databases
@@ -29,7 +32,13 @@ public interface Credentials {
     class None implements Credentials {
         @Override
         public byte[] getKey() {
-            return new byte[0];
+            MessageDigest md = null;
+            try {
+                md = MessageDigest.getInstance("SHA-256");
+            } catch (NoSuchAlgorithmException e) {
+                throw new IllegalStateException(e);
+            }
+            return md.digest(new byte[0]);
         }
     }
 

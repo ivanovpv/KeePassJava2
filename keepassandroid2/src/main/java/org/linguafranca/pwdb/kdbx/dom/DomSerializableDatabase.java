@@ -16,9 +16,10 @@
 
 package org.linguafranca.pwdb.kdbx.dom;
 
-import org.linguafranca.pwdb.kdbx.Salsa20Encryption;
+import org.linguafranca.pwdb.kdbx.stream_3_1.Salsa20StreamEncryptor;
 import org.linguafranca.pwdb.kdbx.SerializableDatabase;
-import org.linguafranca.utils.DatatypeConverter;
+import org.linguafranca.pwdb.kdbx.StreamEncryptor;
+import org.apache.commons.codec.binary.Base64;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -39,8 +40,6 @@ import java.io.OutputStream;
 import java.security.SecureRandom;
 import java.util.Date;
 
-import static org.linguafranca.pwdb.kdbx.dom.DomHelper.*;
-
 /**
  * This class is an XML DOM implementation of a KDBX database. The data is maintained as a DOM,
  * despite the obvious inefficiency of doing do, in order to maintain transparency on loading and
@@ -54,7 +53,7 @@ import static org.linguafranca.pwdb.kdbx.dom.DomHelper.*;
 public class DomSerializableDatabase implements SerializableDatabase {
 
     private Document doc;
-    private Encryption encryption;
+    private StreamEncryptor encryption;
 
     private DomSerializableDatabase() {}
 
@@ -64,18 +63,18 @@ public class DomSerializableDatabase implements SerializableDatabase {
         result.load(result.getClass().getClassLoader().getResourceAsStream("base.kdbx.xml"));
         try {
             // replace all placeholder dates with now
-            String now = dateFormatter.format(new Date());
-            NodeList list = (NodeList) xpath.evaluate("//*[contains(text(),'${creationDate}')]", result.doc.getDocumentElement(), XPathConstants.NODESET);
+            String now = DomHelper.dateFormatter.format(new Date());
+            NodeList list = (NodeList) DomHelper.xpath.evaluate("//*[contains(text(),'${creationDate}')]", result.doc.getDocumentElement(), XPathConstants.NODESET);
             for (int i = 0; i < list.getLength(); i++) {
                 list.item(i).setTextContent(now);
             }
             // set the root group UUID
-            Node uuid = (Node) xpath.evaluate("//"+ UUID_ELEMENT_NAME, result.doc.getDocumentElement(), XPathConstants.NODE);
-            uuid.setTextContent(base64RandomUuid());
+            Node uuid = (Node) DomHelper.xpath.evaluate("//"+ DomHelper.UUID_ELEMENT_NAME, result.doc.getDocumentElement(), XPathConstants.NODE);
+            uuid.setTextContent(DomHelper.base64RandomUuid());
         } catch (XPathExpressionException e) {
             throw new IllegalStateException(e);
         }
-        result.setEncryption(new Salsa20Encryption(SecureRandom.getSeed(32)));
+        result.setEncryption(new Salsa20StreamEncryptor(SecureRandom.getSeed(32)));
         return result;
     }
 
@@ -88,13 +87,14 @@ public class DomSerializableDatabase implements SerializableDatabase {
 
             // we need to decrypt all protected fields
             // TODO we assume they are all strings, which is wrong
-            NodeList protectedContent = (NodeList) xpath.evaluate("//*[@Protected='True']", doc, XPathConstants.NODESET);
+            NodeList protectedContent = (NodeList) DomHelper.xpath.evaluate("//*[@Protected='True']", doc, XPathConstants.NODESET);
             for (int i = 0; i < protectedContent.getLength(); i++){
                 Element element = ((Element) protectedContent.item(i));
-                String base64 = getElementContent(".", element);
-                byte[] encrypted = DatatypeConverter.parseBase64Binary(base64);
+                String base64 = DomHelper.getElementContent(".", element);
+                // Android compatibility
+                byte[] encrypted = Base64.decodeBase64(base64.getBytes());
                 String decrypted = new String(encryption.decrypt(encrypted), "UTF-8");
-                setElementContent(".", element, decrypted);
+                DomHelper.setElementContent(".", element, decrypted);
                 element.removeAttribute("Protected");
             }
 
@@ -120,16 +120,17 @@ public class DomSerializableDatabase implements SerializableDatabase {
             prepareProtection(copyDoc, "URL");
 
             // encrypt and base64 every element marked as protected
-            NodeList protectedContent = (NodeList) xpath.evaluate("//*[@Protected='True']", copyDoc, XPathConstants.NODESET);
+            NodeList protectedContent = (NodeList) DomHelper.xpath.evaluate("//*[@Protected='True']", copyDoc, XPathConstants.NODESET);
             for (int i = 0; i < protectedContent.getLength(); i++){
                 Element element = ((Element) protectedContent.item(i));
-                String decrypted = getElementContent(".", element);
+                String decrypted = DomHelper.getElementContent(".", element);
                 if (decrypted == null) {
                     decrypted = "";
                 }
                 byte[] encrypted = encryption.encrypt(decrypted.getBytes());
-                String base64 = DatatypeConverter.printBase64Binary(encrypted);
-                setElementContent(".", element, base64);
+                // Android compatibility
+                String base64 = new String(Base64.encodeBase64(encrypted));
+                DomHelper.setElementContent(".", element, base64);
             }
 
         } catch (XPathExpressionException e) {
@@ -155,12 +156,12 @@ public class DomSerializableDatabase implements SerializableDatabase {
     private void prepareProtection(Document doc, String protect) throws XPathExpressionException {
         // does this require encryption
         String query = String.format(protectQuery, protect);
-        if (!((String) xpath.evaluate(query, doc, XPathConstants.STRING)).toLowerCase().equals("true")) {
+        if (!((String) DomHelper.xpath.evaluate(query, doc, XPathConstants.STRING)).toLowerCase().equals("true")) {
             return;
         }
         // mark the field as Protected but don't actually encrypt yet, that comes later
         String path = String.format(pattern, protect);
-        NodeList nodelist = (NodeList) xpath.evaluate(path, doc, XPathConstants.NODESET);
+        NodeList nodelist = (NodeList) DomHelper.xpath.evaluate(path, doc, XPathConstants.NODESET);
         for (int i = 0; i < nodelist.getLength(); i++) {
             Element element = (Element) nodelist.item(i);
             element.setAttribute("Protected", "True");
@@ -170,8 +171,9 @@ public class DomSerializableDatabase implements SerializableDatabase {
     @Override
     public byte[] getHeaderHash() {
         try {
-            String base64 = (String) xpath.evaluate("//HeaderHash", doc, XPathConstants.STRING);
-            return DatatypeConverter.parseBase64Binary(base64);
+            String base64 = (String) DomHelper.xpath.evaluate("//HeaderHash", doc, XPathConstants.STRING);
+            // Android compatibility
+            return Base64.decodeBase64(base64.getBytes());
         } catch (XPathExpressionException e) {
             throw new IllegalStateException("Can't get header hash", e);
         }
@@ -179,9 +181,10 @@ public class DomSerializableDatabase implements SerializableDatabase {
 
     @Override
     public void setHeaderHash(byte[] hash) {
-        String base64String = DatatypeConverter.printBase64Binary(hash);
+        // Android compatibility
+        String base64String = new String(Base64.encodeBase64(hash));
         try {
-            ((Element) xpath.evaluate("//HeaderHash", doc, XPathConstants.NODE)).setTextContent(base64String);
+            ((Element) DomHelper.xpath.evaluate("//HeaderHash", doc, XPathConstants.NODE)).setTextContent(base64String);
         } catch (XPathExpressionException e) {
             throw new IllegalStateException("Can't set header hash", e);
         }
@@ -189,12 +192,12 @@ public class DomSerializableDatabase implements SerializableDatabase {
 
 
     @Override
-    public Encryption getEncryption() {
+    public StreamEncryptor getEncryption() {
         return encryption;
     }
 
     @Override
-    public void setEncryption(Encryption encryption) {
+    public void setEncryption(StreamEncryptor encryption) {
         this.encryption = encryption;
     }
 

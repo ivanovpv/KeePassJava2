@@ -16,12 +16,10 @@
 
 package org.linguafranca.pwdb.kdbx.dom;
 
-
 import org.jetbrains.annotations.Nullable;
-import org.linguafranca.pwdb.Entry;
-import org.linguafranca.pwdb.Group;
 import org.linguafranca.pwdb.Icon;
 import org.linguafranca.pwdb.base.AbstractGroup;
+import org.linguafranca.pwdb.kdbx.Helpers;
 import org.w3c.dom.Element;
 
 import java.util.*;
@@ -34,13 +32,13 @@ import static org.linguafranca.pwdb.kdbx.dom.DomHelper.*;
  *
  * @author jo
  */
-public class DomGroupWrapper extends AbstractGroup {
+public class DomGroupWrapper extends AbstractGroup<DomDatabaseWrapper, DomGroupWrapper, DomEntryWrapper, DomIconWrapper> {
 
     static Map<String, ValueCreator> mandatoryGroupElements = new HashMap<String, ValueCreator>() {{
         put(UUID_ELEMENT_NAME, new UuidValueCreator());
         put(NAME_ELEMENT_NAME, new ConstantValueCreator(""));
         put(NOTES_ELEMENT_NAME, new ConstantValueCreator(""));
-        put(ICON_ELEMENT_NAME, new ConstantValueCreator("2"));
+        put(ICON_ELEMENT_NAME, new ConstantValueCreator("0"));
         put(TIMES_ELEMENT_NAME, new ConstantValueCreator(""));
         put(LAST_MODIFICATION_TIME_ELEMENT_NAME, new DateValueCreator());
         put(CREATION_TIME_ELEMENT_NAME, new DateValueCreator());
@@ -70,37 +68,37 @@ public class DomGroupWrapper extends AbstractGroup {
     }
 
     @Override
-    public String getName() {
-        return getElementContent(NAME_ELEMENT_NAME, element);
+    public boolean isRecycleBin() {
+        String UUIDcontent = getElementContent(RECYCLE_BIN_UUID_ELEMENT_NAME, database.dbMeta);
+        if (UUIDcontent != null){
+            UUID uuid = Helpers.uuidFromBase64(UUIDcontent);
+            return uuid.equals(this.getUuid());
+        }
+        return false;
     }
 
     @Override
-    public void setName(String name) {
-        setElementContent(NAME_ELEMENT_NAME, element, name);
-        database.setDirty(true);
+    public @Nullable DomGroupWrapper getParent() {
+        Element parent = ((Element) element.getParentNode());
+        if (parent == null) {
+            return null;
+        }
+        // if the element is the root group there is no parent
+        if (element == element.getOwnerDocument().getDocumentElement().getElementsByTagName(GROUP_ELEMENT_NAME).item(0)){
+            return null;
+        }
+        return new DomGroupWrapper(parent, database, false);
     }
 
     @Override
-    public UUID getUuid() {
-        String encodedUuid = getElementContent(UUID_ELEMENT_NAME, element);
-        return uuidFromBase64(encodedUuid);
+    public void setParent(DomGroupWrapper parent) {
+        parent.addGroup(this);
     }
 
     @Override
-    public Icon getIcon() {
-        return new DomIconWrapper(getElement(ICON_ELEMENT_NAME, element, false));
-    }
-
-    @Override
-    public void setIcon(Icon icon) {
-        setElementContent(ICON_ELEMENT_NAME, element, String.valueOf(icon.getIndex()));
-        database.setDirty(true);
-    }
-
-    @Override
-    public List<Group> getGroups() {
+    public List<DomGroupWrapper> getGroups() {
         List<Element> elements = getElements(GROUP_ELEMENT_NAME, this.element);
-        List<Group> result = new ArrayList<>(elements.size());
+        List<DomGroupWrapper> result = new ArrayList<>(elements.size());
         for (Element e: elements){
             result.add(new DomGroupWrapper(e, database, false));
         }
@@ -114,49 +112,32 @@ public class DomGroupWrapper extends AbstractGroup {
     }
 
     @Override
-    public @Nullable Group getParent() {
-        Element parent = ((Element) element.getParentNode());
-        if (parent == null) {
-            return null;
-        }
-        // if the element is the root group there is no parent
-        if (element == element.getOwnerDocument().getDocumentElement().getElementsByTagName(GROUP_ELEMENT_NAME).item(0)){
-            return null;
-        }
-        return new DomGroupWrapper(parent, database, false);
-    }
-
-    @Override
-    public void setParent(Group parent) {
-        parent.addGroup(this);
-    }
-
-    @Override
-    public Group addGroup(Group group) {
+    public DomGroupWrapper addGroup(DomGroupWrapper group) {
         if (group.isRootGroup()) {
             throw new IllegalStateException("Cannot set root group as child of another group");
         }
         // skip if this is a new group with no parent
         if (group.getParent() != null) {
+            group.getParent().touch();
             group.getParent().removeGroup(group);
         }
-        element.appendChild(((DomGroupWrapper) group).element);
-        touchElement("Times/LocationChanged", ((DomGroupWrapper) group).element);
-        database.setDirty(true);
+        element.appendChild(group.element);
+        touchElement("Times/LocationChanged", group.element);
+        touch();
         return group;
     }
 
     @Override
-    public Group removeGroup(Group g1) {
-        element.removeChild(((DomGroupWrapper) g1).element);
+    public DomGroupWrapper removeGroup(DomGroupWrapper g1) {
+        element.removeChild(g1.element);
         database.setDirty(true);
         return g1;
     }
 
     @Override
-    public List<Entry> getEntries() {
+    public List<DomEntryWrapper> getEntries() {
         List<Element> elements = getElements(ENTRY_ELEMENT_NAME, this.element);
-        List<Entry> entries = new ArrayList<>(elements.size());
+        List<DomEntryWrapper> entries = new ArrayList<>(elements.size());
         for(Element e: elements) {
             entries.add(new DomEntryWrapper(e, database, false));
         }
@@ -169,20 +150,53 @@ public class DomGroupWrapper extends AbstractGroup {
     }
 
     @Override
-    public Entry addEntry(Entry entry) {
+    public DomEntryWrapper addEntry(DomEntryWrapper entry) {
         if (entry.getParent() != null) {
-            ((DomEntryWrapper) entry).element.getParentNode().removeChild(element);
+            entry.element.getParentNode().removeChild(element);
         }
-        element.appendChild(((DomEntryWrapper) entry).element);
+        element.appendChild(entry.element);
         database.setDirty(true);
         return entry;
     }
 
     @Override
-    public Entry removeEntry(Entry e12) {
-        element.removeChild(((DomEntryWrapper) e12).element);
+    public DomEntryWrapper removeEntry(DomEntryWrapper e12) {
+        element.removeChild(e12.element);
         database.setDirty(true);
         return e12;
+    }
+
+    @Override
+    public String getName() {
+        return getElementContent(NAME_ELEMENT_NAME, element);
+    }
+
+    @Override
+    public void setName(String name) {
+        setElementContent(NAME_ELEMENT_NAME, element, name);
+        database.setDirty(true);
+    }
+
+    @Override
+    public UUID getUuid() {
+        String encodedUuid = getElementContent(UUID_ELEMENT_NAME, element);
+        return Helpers.uuidFromBase64(encodedUuid);
+    }
+
+    @Override
+    public DomIconWrapper getIcon() {
+        return new DomIconWrapper(getElement(ICON_ELEMENT_NAME, element, false));
+    }
+
+    @Override
+    public void setIcon(DomIconWrapper icon) {
+        setElementContent(ICON_ELEMENT_NAME, element, String.valueOf(icon.getIndex()));
+        database.setDirty(true);
+    }
+
+    @Override
+    public DomDatabaseWrapper getDatabase() {
+        return database;
     }
 
     @Override
@@ -194,5 +208,10 @@ public class DomGroupWrapper extends AbstractGroup {
 
         return element.equals(that.element) && database.equals(that.database);
 
+    }
+
+    private void touch() {
+        touchElement(LAST_MODIFICATION_TIME_ELEMENT_NAME, this.element);
+        this.database.setDirty(true);
     }
 }

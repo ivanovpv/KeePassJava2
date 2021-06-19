@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package org.linguafranca.security;
+package org.linguafranca.pwdb.security;
 
+// use spongycastle repackaging of bouncycastle in deference to Android needs
 import org.spongycastle.crypto.engines.AESEngine;
-import org.spongycastle.crypto.engines.AESFastEngine;
 import org.spongycastle.crypto.io.CipherInputStream;
 import org.spongycastle.crypto.io.CipherOutputStream;
 import org.spongycastle.crypto.modes.CBCBlockCipher;
@@ -117,7 +117,7 @@ public class Encryption {
      */
     public static InputStream getDecryptedInputStream (InputStream encryptedInputStream, byte[] keyData, byte[] ivData) {
         final ParametersWithIV keyAndIV = new ParametersWithIV(new KeyParameter(keyData), ivData);
-        PaddedBufferedBlockCipher pbbc = new PaddedBufferedBlockCipher(new CBCBlockCipher(new AESFastEngine()));
+        PaddedBufferedBlockCipher pbbc = new PaddedBufferedBlockCipher(new CBCBlockCipher(new AESEngine()));
         pbbc.init(false, keyAndIV);
         return new CipherInputStream(encryptedInputStream, pbbc);
     }
@@ -127,7 +127,7 @@ public class Encryption {
      */
     public static OutputStream getEncryptedOutputStream (OutputStream decryptedOutputStream, byte[] keyData, byte[] ivData) {
         final ParametersWithIV keyAndIV = new ParametersWithIV(new KeyParameter(keyData), ivData);
-        PaddedBufferedBlockCipher pbbc = new PaddedBufferedBlockCipher(new CBCBlockCipher(new AESFastEngine()));
+        PaddedBufferedBlockCipher pbbc = new PaddedBufferedBlockCipher(new CBCBlockCipher(new AESEngine()));
         pbbc.init(true, keyAndIV);
         return new CipherOutputStream(decryptedOutputStream, pbbc);
     }

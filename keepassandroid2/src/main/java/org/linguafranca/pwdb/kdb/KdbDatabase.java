@@ -16,15 +16,16 @@
 
 package org.linguafranca.pwdb.kdb;
 
-import org.linguafranca.pwdb.Visitor;
-import org.linguafranca.security.Credentials;
-import org.linguafranca.pwdb.base.AbstractDatabase;
-import org.linguafranca.pwdb.Entry;
 import org.linguafranca.pwdb.Group;
 import org.linguafranca.pwdb.Icon;
+import org.linguafranca.pwdb.Visitor;
+import org.linguafranca.pwdb.base.AbstractDatabase;
+import org.linguafranca.pwdb.Credentials;
+import org.linguafranca.pwdb.Entry;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.UUID;
 
@@ -33,7 +34,7 @@ import java.util.UUID;
  *
  * @author jo
  */
-public class KdbDatabase extends AbstractDatabase {
+public class KdbDatabase extends AbstractDatabase<KdbDatabase, KdbGroup, KdbEntry, KdbIcon> {
     private String description;
     private KdbGroup rootGroup;
 
@@ -52,14 +53,6 @@ public class KdbDatabase extends AbstractDatabase {
         return KdbSerializer.createKdbDatabase(credentials, new KdbHeader(), inputStream);
     }
 
-    public static boolean checkCredentials(Credentials credentials, InputStream inputStream) {
-        try {
-            KdbSerializer.createKdbDatabase(credentials, new KdbHeader(), inputStream);
-        } catch(Throwable th) {
-            return false;
-        }
-        return true;
-    }
     /**
      * Primarily intended for finding the parent of an Entry, when deserializing KDB data.
      *
@@ -75,27 +68,27 @@ public class KdbDatabase extends AbstractDatabase {
     }
 
     @Override
-    public Group getRootGroup() {
+    public KdbGroup getRootGroup() {
         return rootGroup;
     }
 
     @Override
-    public Group newGroup() {
+    public KdbGroup newGroup() {
         return new KdbGroup();
     }
 
     @Override
-    public Entry newEntry() {
+    public KdbEntry newEntry() {
         return new KdbEntry();
     }
 
     @Override
-    public Icon newIcon() {
+    public KdbIcon newIcon() {
         return new KdbIcon(0);
     }
 
     @Override
-    public Icon newIcon(Integer i) {
+    public KdbIcon newIcon(Integer i) {
         return new KdbIcon(i);
     }
 
@@ -109,11 +102,31 @@ public class KdbDatabase extends AbstractDatabase {
         this.description = description;
     }
 
-    static class GroupFinder extends Visitor.Default {
+    @Override
+    public void save(Credentials credentials, OutputStream outputStream) throws IOException {
+        throw new UnsupportedOperationException("Cannot save KDB files in this implementation");
+    }
+
+    @Override
+    public boolean shouldProtect(String propertyName) {
+        return false;
+    }
+
+    @Override
+    public String getName() {
+        return null;
+    }
+
+    @Override
+    public void setName(String s) {
+
+    }
+
+    private static class GroupFinder extends Visitor.Default {
         Group foundGroup = null;
         UUID uuid;
 
-        public GroupFinder(UUID uuid) {
+        GroupFinder(UUID uuid) {
             if (uuid==null) {
                 throw new IllegalArgumentException("UUID cannot be null");
             }
@@ -126,5 +139,37 @@ public class KdbDatabase extends AbstractDatabase {
                 foundGroup = group;
             }
         }
+    }
+
+    @Override
+    public boolean isRecycleBinEnabled() {
+        return false;
+    }
+
+    @Override
+    public void enableRecycleBin(boolean enable) {
+        if (enable) {
+            throw new UnsupportedOperationException("KDB files don't have a recycle bin");
+        }
+    }
+
+    @Override
+    public KdbGroup getRecycleBin() {
+        return null;
+    }
+
+    @Override
+    public boolean supportsNonStandardPropertyNames() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsBinaryProperties() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsRecycleBin() {
+        return false;
     }
 }

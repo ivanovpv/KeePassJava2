@@ -16,9 +16,8 @@
 
 package org.linguafranca.pwdb.kdbx.dom;
 
-import org.linguafranca.pwdb.Group;
-import org.linguafranca.pwdb.Icon;
 import org.linguafranca.pwdb.base.AbstractEntry;
+import org.linguafranca.pwdb.kdbx.Helpers;
 import org.w3c.dom.Element;
 
 import java.text.ParseException;
@@ -29,9 +28,9 @@ import java.util.*;
  *
  * @author jo
  */
-public class DomEntryWrapper extends AbstractEntry {
+public class DomEntryWrapper extends AbstractEntry <DomDatabaseWrapper, DomGroupWrapper, DomEntryWrapper, DomIconWrapper>{
 
-    static Map<String, DomHelper.ValueCreator> mandatoryEntryElements = new HashMap<String, DomHelper.ValueCreator>() {{
+    private static Map<String, DomHelper.ValueCreator> mandatoryEntryElements = new HashMap<String, DomHelper.ValueCreator>() {{
         put(DomHelper.UUID_ELEMENT_NAME, new DomHelper.UuidValueCreator());
         put(DomHelper.ICON_ELEMENT_NAME, new DomHelper.ConstantValueCreator("2"));
         put(DomHelper.TIMES_ELEMENT_NAME, new DomHelper.ConstantValueCreator(""));
@@ -45,7 +44,7 @@ public class DomEntryWrapper extends AbstractEntry {
     }};
 
     final Element element;
-    final DomDatabaseWrapper database;
+    private final DomDatabaseWrapper database;
 
     public DomEntryWrapper(Element element, DomDatabaseWrapper database, boolean newElement) {
         this.element = element;
@@ -82,9 +81,56 @@ public class DomEntryWrapper extends AbstractEntry {
     }
 
     @Override
+    public boolean removeProperty(String name) throws IllegalArgumentException {
+        if (STANDARD_PROPERTY_NAMES.contains(name)) throw new IllegalArgumentException("may not remove property: " + name);
+        boolean wasRemoved = DomHelper.removeElement(String.format(DomHelper.PROPERTY_ELEMENT_FORMAT, name), element);
+        if (wasRemoved) database.setDirty(true);
+        return wasRemoved;
+    }
+
+    @Override
     public List<String> getPropertyNames() {
         ArrayList<String> result = new ArrayList<>();
         List<Element> list = DomHelper.getElements("String", element);
+        for (Element listElement: list) {
+            result.add(DomHelper.getElementContent("Key", listElement));
+        }
+        return result;
+    }
+
+    @Override
+    public byte[] getBinaryProperty(String name) {
+        Element property = DomHelper.getElement(String.format(DomHelper.BINARY_PROPERTY_ELEMENT_FORMAT, name), element, false);
+        if (property == null) {
+            return null;
+        }
+        return DomHelper.getBinaryElementContent(DomHelper.VALUE_ELEMENT_NAME, property);
+    }
+
+    @Override
+    public void setBinaryProperty(String name, byte[] value) {
+        Element property = DomHelper.getElement(String.format(DomHelper.BINARY_PROPERTY_ELEMENT_FORMAT, name), element, false);
+        if (property == null) {
+            property = DomHelper.newElement("Binary", element);
+            DomHelper.setElementContent("Key", property, name);
+        }
+        DomHelper.setBinaryElementContent(DomHelper.VALUE_ELEMENT_NAME, property, value);
+        DomHelper.touchElement(DomHelper.LAST_MODIFICATION_TIME_ELEMENT_NAME, element);
+        database.setDirty(true);
+
+    }
+
+    @Override
+    public boolean removeBinaryProperty(String name) {
+        boolean wasRemoved = DomHelper.removeElement(String.format(DomHelper.BINARY_PROPERTY_ELEMENT_FORMAT, name), element);
+        if (wasRemoved) database.setDirty(true);
+        return wasRemoved;
+    }
+
+    @Override
+    public List<String> getBinaryPropertyNames() {
+        ArrayList<String> result = new ArrayList<>();
+        List<Element> list = DomHelper.getElements("Binary", element);
         for (Element listElement: list) {
             result.add(DomHelper.getElementContent("Key", listElement));
         }
@@ -101,7 +147,7 @@ public class DomEntryWrapper extends AbstractEntry {
     }
 
     @Override
-    public Group getParent() {
+    public DomGroupWrapper getParent() {
         if (element.getParentNode() == null) {
             return null;
         }
@@ -110,66 +156,16 @@ public class DomEntryWrapper extends AbstractEntry {
 
     @Override
     public UUID getUuid() {
-        return DomHelper.uuidFromBase64(DomHelper.getElementContent(DomHelper.UUID_ELEMENT_NAME, element));
+        return Helpers.uuidFromBase64(DomHelper.getElementContent(DomHelper.UUID_ELEMENT_NAME, element));
     }
 
     @Override
-    public String getUsername() {
-        return getProperty("UserName");
-    }
-
-    @Override
-    public void setUsername(String username) {
-        setProperty("UserName", username);
-    }
-
-    @Override
-    public String getPassword() {
-        return getProperty("Password");
-    }
-
-    @Override
-    public void setPassword(String pass) {
-        setProperty("Password", pass);
-    }
-
-    @Override
-    public String getUrl() {
-        return getProperty("URL");
-    }
-
-    @Override
-    public void setUrl(String url) {
-        setProperty("URL", url);
-    }
-
-    @Override
-    public String getTitle() {
-        return getProperty("Title");
-    }
-
-    @Override
-    public void setTitle(String title) {
-        setProperty("Title", title);
-    }
-
-    @Override
-    public String getNotes() {
-        return getProperty("Notes");
-    }
-
-    @Override
-    public void setNotes(String notes) {
-        setProperty("Notes", notes);
-    }
-
-    @Override
-    public Icon getIcon() {
+    public DomIconWrapper getIcon() {
         return new DomIconWrapper(DomHelper.getElement(DomHelper.ICON_ELEMENT_NAME, element, false));
     }
 
     @Override
-    public void setIcon(Icon icon) {
+    public void setIcon(DomIconWrapper icon) {
         DomHelper.getElement(DomHelper.ICON_ELEMENT_NAME, element, true).setTextContent(String.valueOf(icon.getIndex()));
         DomHelper.touchElement(DomHelper.LAST_MODIFICATION_TIME_ELEMENT_NAME, element);
         database.setDirty(true);
@@ -194,12 +190,30 @@ public class DomEntryWrapper extends AbstractEntry {
     }
 
     @Override
+    public boolean getExpires() {
+        String content = DomHelper.getElementContent(DomHelper.EXPIRES_ELEMENT_NAME, element);
+        return content != null && content.equalsIgnoreCase("true");
+    }
+
+    @Override
+    public void setExpires(boolean expires) {
+        DomHelper.setElementContent(DomHelper.EXPIRES_ELEMENT_NAME, element, expires ? "True" : "False");
+    }
+
+    @Override
     public Date getExpiryTime() {
         try {
             return DomHelper.dateFormatter.parse(DomHelper.getElementContent(DomHelper.EXPIRY_TIME_ELEMENT_NAME, element));
         } catch (ParseException e) {
             return new Date(0);
         }
+    }
+
+    @Override
+    public void setExpiryTime(Date expiryTime) throws IllegalArgumentException {
+        if (expiryTime == null) throw new IllegalArgumentException("expiryTime may not be null");
+        String formatted = DomHelper.dateFormatter.format(expiryTime);
+        DomHelper.setElementContent(DomHelper.EXPIRY_TIME_ELEMENT_NAME, element, formatted);
     }
 
     @Override
@@ -211,15 +225,9 @@ public class DomEntryWrapper extends AbstractEntry {
         }
     }
 
-    //@todo need to be implemented
     @Override
-    public byte[] getBinaryData() {
-        return new byte[0];
-    }
-
-    //@todo need to be implemented
-    @Override
-    public void setBinaryData(byte[] binaryData) {
+    protected void touch() {
+        DomHelper.setElementContent(DomHelper.LAST_MODIFICATION_TIME_ELEMENT_NAME, element, DomHelper.dateFormatter.format(new Date()));
     }
 
     @Override

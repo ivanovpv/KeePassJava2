@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package org.linguafranca.pwdb.kdbx;
+package org.linguafranca.pwdb.kdbx.stream_3_1;
 
-import org.linguafranca.utils.DatatypeConverter;
+import org.linguafranca.pwdb.kdbx.StreamEncryptor;
+import org.linguafranca.pwdb.security.Encryption;
 import org.spongycastle.crypto.engines.Salsa20Engine;
 import org.spongycastle.crypto.params.KeyParameter;
 import org.spongycastle.crypto.params.ParametersWithIV;
-import org.linguafranca.security.Encryption;
+import org.spongycastle.util.encoders.Hex;
 
 import java.security.MessageDigest;
 
@@ -28,7 +29,7 @@ import java.security.MessageDigest;
  * A helper class for Salsa20 encryption.
  *
  * <p>Salsa20 doesn't quite fit the memory model
- * supposed by SerializableDatabase.Encryption - all encrypted
+ * supposed by SerializableDatabase.StreamEncryptor - all encrypted
  * items have to be en/decrypted in order of encryption,
  * i.e. in document order and at the same time.
  *
@@ -38,12 +39,13 @@ import java.security.MessageDigest;
  *
  * @author jo
  */
-public class Salsa20Encryption implements SerializableDatabase.Encryption {
+public class Salsa20StreamEncryptor implements StreamEncryptor {
 
     private final Salsa20Engine salsa20;
     private final byte[] key;
 
-    private static final byte[] SALSA20_IV = DatatypeConverter.parseHexBinary("E830094B97205D2A");
+    // Android compatibility
+    private static final byte[] SALSA20_IV = Hex.decode("E830094B97205D2A".getBytes());
 
     /**
      * Creates a Salsa20 engine
@@ -51,6 +53,7 @@ public class Salsa20Encryption implements SerializableDatabase.Encryption {
      * @param key the key to use
      * @return an initialized Salsa20 engine
      */
+    @SuppressWarnings("WeakerAccess")
     public static Salsa20Engine createSalsa20(byte[] key) {
         MessageDigest md = Encryption.getMessageDigestInstance();
         KeyParameter keyParameter = new KeyParameter(md.digest(key));
@@ -65,7 +68,7 @@ public class Salsa20Encryption implements SerializableDatabase.Encryption {
      *
      * @param key the key to use
      */
-    public Salsa20Encryption(byte[] key) {
+    public Salsa20StreamEncryptor(byte[] key) {
         this.key = key;
         salsa20 = createSalsa20(key);
     }

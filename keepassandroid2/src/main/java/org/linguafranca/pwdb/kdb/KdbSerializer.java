@@ -17,9 +17,10 @@
 package org.linguafranca.pwdb.kdb;
 
 import com.google.common.io.LittleEndianDataInputStream;
-import org.linguafranca.security.Credentials;
+import org.linguafranca.pwdb.base.AbstractGroup;
+import org.linguafranca.pwdb.Credentials;
 import org.linguafranca.pwdb.Group;
-import org.linguafranca.security.Encryption;
+import org.linguafranca.pwdb.security.Encryption;
 
 import java.io.DataInput;
 import java.io.IOException;
@@ -105,6 +106,13 @@ public class KdbSerializer {
         digestInputStream.close();
 
         return kdbDatabase;
+    }
+
+    private static void setDatabase(KdbDatabase kdbDatabase, KdbGroup group) {
+        for (KdbGroup child: group.getGroups()){
+            ((KdbGroup) child).database = kdbDatabase;
+            setDatabase(kdbDatabase, child);
+        }
     }
 
     // these are the signatures of a KDB "V3" file
@@ -204,7 +212,7 @@ public class KdbSerializer {
                     group.setFlags(readInt(dataInput));
                     break;
                 default:
-                    throw new IllegalStateException("Unknown field type");
+                    throw new IllegalStateException("Unknown field type " + String.valueOf(fieldType));
             }
         }
         dataInput.readInt();

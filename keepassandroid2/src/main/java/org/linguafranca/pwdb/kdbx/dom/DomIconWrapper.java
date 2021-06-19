@@ -20,7 +20,7 @@ import org.linguafranca.pwdb.Icon;
 import org.w3c.dom.Element;
 
 /**
- * Class wraps Icons from a {@link DomSerializableDatabase} as {@link org.linguafranca.pwdb.Icon}
+ * Class wraps Icons from a {@link DomSerializableDatabase} as {@link Icon}
  *
  * @author jo
  */

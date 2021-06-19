@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-package org.linguafranca.pwdb.kdbx;
+package org.linguafranca.pwdb.kdbx.stream_3_1;
 
-import org.linguafranca.security.Credentials;
+import org.linguafranca.pwdb.kdbx.SerializableDatabase;
+import org.linguafranca.pwdb.kdbx.StreamFormat;
+import org.linguafranca.pwdb.Credentials;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,22 +35,9 @@ public class KdbxStreamFormat implements StreamFormat {
     public void load(SerializableDatabase serializableDatabase, Credentials credentials, InputStream encryptedInputStream) throws IOException {
         KdbxHeader kdbxHeader = new KdbxHeader();
         InputStream decryptedInputStream = KdbxSerializer.createUnencryptedInputStream(credentials, kdbxHeader, encryptedInputStream);
-        serializableDatabase.setEncryption(new Salsa20Encryption(kdbxHeader.getProtectedStreamKey()));
+        serializableDatabase.setEncryption(new Salsa20StreamEncryptor(kdbxHeader.getProtectedStreamKey()));
         serializableDatabase.load(decryptedInputStream);
         decryptedInputStream.close();
-    }
-
-    @Override
-    public boolean checkCredentials(Credentials credentials, InputStream encryptedInputStream) {
-        KdbxHeader kdbxHeader = new KdbxHeader();
-        try {
-            InputStream decryptedInputStream = KdbxSerializer.createUnencryptedInputStream(credentials, kdbxHeader, encryptedInputStream);
-            decryptedInputStream.close();
-        }
-        catch(Exception ex) {
-            return false;
-        }
-        return true;
     }
 
     @Override
@@ -57,7 +46,7 @@ public class KdbxStreamFormat implements StreamFormat {
         KdbxHeader kdbxHeader = new KdbxHeader();
         OutputStream unencrytedOutputStream = KdbxSerializer.createEncryptedOutputStream(credentials, kdbxHeader, encryptedOutputStream);
         serializableDatabase.setHeaderHash(kdbxHeader.getHeaderHash());
-        serializableDatabase.setEncryption(new Salsa20Encryption(kdbxHeader.getProtectedStreamKey()));
+        serializableDatabase.setEncryption(new Salsa20StreamEncryptor(kdbxHeader.getProtectedStreamKey()));
         serializableDatabase.save(unencrytedOutputStream);
         unencrytedOutputStream.flush();
         unencrytedOutputStream.close();

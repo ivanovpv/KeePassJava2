@@ -16,8 +16,9 @@
 
 package org.linguafranca.pwdb.kdbx;
 
-import org.linguafranca.security.Encryption;
-import org.linguafranca.security.Credentials;
+import org.linguafranca.pwdb.Credentials;
+import org.linguafranca.pwdb.security.Encryption;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.InputStream;
 import java.security.MessageDigest;
@@ -26,25 +27,47 @@ import java.security.MessageDigest;
  * The class holds subclasses of {@link Credentials} appropriate to KDBX files.
  *
  * @author jo
+ * @deprecated use KdbxCreds instead
  */
+@Deprecated
+@SuppressWarnings("deprecation")
 public interface KdbxCredentials extends Credentials {
 
     /**
      * Class for KDBX key file with password credentials
      */
-    public static class KeyFile implements KdbxCredentials {
+    class KeyFile implements KdbxCredentials {
 
         private final byte[] key;
 
-        public KeyFile(byte[] password, InputStream inputStream) {
+        /**
+         * Constructor for password with  KDBX Keyfile
+         * @param password Master Password (<code>new byte[0]</code> if empty, not none)
+         * @param inputStream inputstream of the keyfile
+         */
+        public KeyFile(@NotNull byte[] password, @NotNull InputStream inputStream) {
             MessageDigest md = Encryption.getMessageDigestInstance();
             byte[] pwKey = md.digest(password);
+            md.update(pwKey);
 
             byte[] keyFileData = KdbxKeyFile.load(inputStream);
             if (keyFileData == null) {
                 throw new IllegalStateException("Could not read key file");
             }
-            md.update(pwKey);
+            this.key = md.digest(keyFileData);
+        }
+
+        /**
+         * Constructor for KDBX Keyfile with no password
+         * @param inputStream inputstream of the keyfile
+         */
+        public KeyFile(@NotNull InputStream inputStream) {
+            MessageDigest md = Encryption.getMessageDigestInstance();
+
+            byte[] keyFileData = KdbxKeyFile.load(inputStream);
+            if (keyFileData == null) {
+                throw new IllegalStateException("Could not read key file");
+            }
             this.key = md.digest(keyFileData);
         }
 
@@ -57,11 +80,11 @@ public interface KdbxCredentials extends Credentials {
     /**
      * Class for KDBX password only credentials
      */
-    public static class Password implements KdbxCredentials {
+    class Password implements KdbxCredentials {
 
         private final byte[] key;
 
-        public Password(byte[] password) {
+        public Password(@NotNull byte[] password) {
             MessageDigest md = Encryption.getMessageDigestInstance();
             byte[] digest = md.digest(password);
             key = md.digest(digest);
